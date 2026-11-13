@@ -1,23 +1,12 @@
 
- // API хүсэлт бүрийг терминал дээр харуулах
+// Logger middleware
+// API руу ирсэн хүсэлт бүрийг терминалд харуулна
+
 export function logger(req, res, next) {
 
-    // Хүсэлт эхэлсэн хугацааг авах
-    const start = Date.now();
+    // Хүсэлтийн арга болон URL-г хэвлэх
+    console.log(`${req.method} ${req.url}`);
 
-    // Хариу дууссаны дараа ажиллана
-    res.on("finish", () => {
-
-        // Хүсэлтэд зарцуулсан хугацааг тооцоолох
-        const ms = Date.now() - start;
-
-        // Хүсэлтийн мэдээллийг терминал дээр хэвлэх
-        console.log(
-            `${req.method} ${req.url} ` +
-            `${res.statusCode} ${ms}ms`
-        );
-    });
-
-    // Дараагийн middleware эсвэл route руу шилжих
+    // Дараагийн middleware рүү шилжих
     next();
 }

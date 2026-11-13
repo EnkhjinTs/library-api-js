@@ -1,90 +1,118 @@
 
 import express from "express";
 
-// Ном болон хэрэглэгчийн Router
+// Номын Router
 import booksRouter from "./routes/books.router.js";
+
+// Хэрэглэгчийн Router
 import usersRouter from "./routes/users.router.js";
 
-// Middleware-үүд
+// Семинар 6 - Зохиогчийн Router
+import authorsRouter from "./routes/authors.router.js";
+
+// Middleware-ууд
 import { logger } from "./middlewares/logger.js";
 import { notFound, errorHandler } from "./middlewares/error.js";
 
-// Express сервер үүсгэх
+// Express application үүсгэх
 const app = express();
 
-// 1. JSON өгөгдлийг унших
+// JSON өгөгдөл хүлээн авах
 app.use(express.json());
 
-// 2. Хүсэлт бүрийг бүртгэх
+// Хүсэлт бүрийг терминалд бүртгэх
 app.use(logger);
+
+// --------------------------------
+// СЕМИНАР 1 - ҮНДСЭН API
+// --------------------------------
 
 // Нүүр хуудас
 app.get("/", (req, res) => {
     res.json({
-        message: "Library API",
-        version: "1.0.0"
+        message: "Welcome to Library API"
     });
 });
 
-// Сервер ажиллаж байгаа эсэхийг шалгах
+// Серверийн төлөв шалгах
 app.get("/health", (req, res) => {
     res.json({
-        status: "ok",
-        uptime: process.uptime()
+        status: "ok"
     });
 });
 
-// Хэрэглэгчийн профайл
+// Профайлын мэдээлэл
 app.get("/profile", (req, res) => {
     res.json({
-        name: "Bat",
-        role: "USER",
-        email: "bat@example.com"
+        name: "Student",
+        project: "Library API"
     });
 });
 
-// Төслийн мэдээлэл
+// Төслийн тухай
 app.get("/about", (req, res) => {
     res.json({
         project: "Library API",
-        version: "1.0.0",
-        author: "Student"
+        description: "Express, PostgreSQL and Prisma"
     });
 });
 
-// Оюутнуудын мэдээлэл
+// Оюутны мэдээлэл
 app.get("/students", (req, res) => {
-    res.json([
-        { id: 1, name: "Bat" },
-        { id: 2, name: "Bold" },
-        { id: 3, name: "Saraa" }
-    ]);
+    res.json({
+        students: []
+    });
 });
 
-// Хичээлүүдийн мэдээлэл
+// Хичээлийн мэдээлэл
 app.get("/courses", (req, res) => {
-    res.json([
-        { id: 1, name: "JavaScript" },
-        { id: 2, name: "Node.js" }
-    ]);
+    res.json({
+        courses: []
+    });
 });
 
-// 3. Номын API-г холбох
+// --------------------------------
+// СЕМИНАР 3-5 - НОМЫН API
+// --------------------------------
+
+// GET, POST, PATCH, DELETE /books
 app.use("/books", booksRouter);
 
-// 4. Хэрэглэгчийн API-г холбох
+// --------------------------------
+// СЕМИНАР 3 - ХЭРЭГЛЭГЧИЙН API
+// --------------------------------
+
+// Хэрэглэгчийн API
 app.use("/users", usersRouter);
 
-// 5. Байхгүй API хаягт 404 буцаах
+// --------------------------------
+// СЕМИНАР 6 - ЗОХИОГЧИЙН API
+// --------------------------------
+
+// GET /authors
+// GET /authors/:id
+// POST /authors
+// GET /authors/:id/books
+app.use("/authors", authorsRouter);
+
+// --------------------------------
+// АЛДАА БОЛОВСРУУЛАХ
+// --------------------------------
+
+// Байхгүй API-д 404 буцаах
 app.use(notFound);
 
-// 6. Серверийн алдааг боловсруулах
+// Серверийн алдааг боловсруулах
 app.use(errorHandler);
+
+// --------------------------------
+// СЕРВЕР АЖИЛЛУУЛАХ
+// --------------------------------
 
 // .env файлаас PORT авах
 const PORT = Number(process.env.PORT) || 4000;
 
-// Серверийг ажиллуулах
+// Серверийг эхлүүлэх
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });

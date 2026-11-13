@@ -1,27 +1,39 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
   provider = "prisma-client-js"
 }
 
+// PostgreSQL өгөгдлийн сан
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// Зохиогчийн мэдээлэл
+model Author {
+  // Зохиогчийн ID
+  id    Int    @id @default(autoincrement())
+
+  // Зохиогчийн нэр
+  name  String
+
+  // Давтагдахгүй имэйл
+  email String @unique
+
+  // Нэг зохиогч олон номтой
+  books Book[]
+}
+
+// Номын мэдээлэл
 model Book {
-  // Номын ID автоматаар нэмэгдэнэ
+  // Номын ID
   id          Int      @id @default(autoincrement())
 
   // Номын нэр
   title       String
-  
-// Номын зохиогч
-  author      String?
+
+  // Семинар 5-ын зохиогчийн нэрийг түр хадгална
+  authorName  String?  @map("author")
 
   // Номын үнэ
   price       Int
@@ -31,4 +43,10 @@ model Book {
 
   // Ном нэмсэн огноо
   createdAt   DateTime @default(now())
+
+  // Зохиогчийн ID - түр заавал биш
+  authorId    Int?
+
+  // Зохиогчтой холбох
+  author      Author?  @relation(fields: [authorId], references: [id])
 }
