@@ -1,13 +1,26 @@
 
 import express from "express";
 
+// Номын module-оос функцүүд импортлох
+import {
+    getBooksFromDb,
+    getBookOrThrow,
+    searchByTitle
+} from "./books.js";
+
+// Хэрэглэгчийн module-оос импортлох
+import {
+    users,
+    findUserById
+} from "./users.js";
+
 // Express сервер үүсгэх
 const app = express();
 
-// Серверийн порт
-const PORT = 4000;//PORT нь сервер ямар дугаартай портоор хүсэлт хүлээн авахыг заадаг. Бид 3000 портыг 4000 болгож өөрчилсөн.//
+// JSON өгөгдөл унших
+app.use(express.json());
 
-// Үндсэн хуудасны GET route
+// Нүүр хуудас
 app.get("/", (req, res) => {
     res.json({
         message: "Library API",
@@ -15,15 +28,15 @@ app.get("/", (req, res) => {
     });
 });
 
- // Сервер ажиллаж байгаа эсэхийг шалгах
+// Серверийн төлөв шалгах
 app.get("/health", (req, res) => {
-    res.status(200).json({
+    res.json({
         status: "ok",
         uptime: process.uptime()
     });
 });
 
- // Хэрэглэгчийн мэдээлэл буцаах
+// Хэрэглэгчийн жишээ мэдээлэл
 app.get("/profile", (req, res) => {
     res.json({
         name: "Bat",
@@ -32,65 +45,110 @@ app.get("/profile", (req, res) => {
     });
 });
 
- // Номын мэдээллийг ID-аар авах
-app.get("/books/:id", (req, res) => {
-
-    // URL-аас номын ID-г авч тоо болгох
-    const id = Number(req.params.id);
-
-    // Номын мэдээллийг JSON хэлбэрээр буцаах
-    res.json({
-        id: id,
-        title: "Node.js Basics"
-    });
-});
-
- // Төслийн тухай мэдээлэл буцаах
+// Төслийн мэдээлэл
 app.get("/about", (req, res) => {
     res.json({
         project: "Library API",
         version: "1.0.0",
         author: "Student"
     });
-});///about endpoint нь төслийн нэр, хувилбар болон зохиогчийн мэдээллийг JSON хэлбэрээр буцаадаг.//
+});
 
- // 3 оюутны мэдээлэл буцаах
+// Оюутнуудын мэдээлэл
 app.get("/students", (req, res) => {
     res.json([
-        {
-            id: 1,
-            name: "Bat",
-            age: 20
-        },
-        {
-            id: 2,
-            name: "Bold",
-            age: 21
-        },
-        {
-            id: 3,
-            name: "Saraa",
-            age: 19
-        }
+        { id: 1, name: "Bat" },
+        { id: 2, name: "Bold" },
+        { id: 3, name: "Saraa" }
     ]);
-});//students нь 3 оюутны мэдээллийг массив (array) хэлбэрээр JSON болгон буцаадаг GET endpoint юм.//
+});
 
- // 2 хичээлийн мэдээлэл буцаах
+// Хичээлүүдийн мэдээлэл
 app.get("/courses", (req, res) => {
     res.json([
-        {
-            id: 1,
-            name: "Backend Programming"
-        },
-        {
-            id: 2,
-            name: "Web Development"
-        }
+        { id: 1, name: "JavaScript" },
+        { id: 2, name: "Node.js" }
     ]);
-});//courses endpoint нь хоёр хичээлийн мэдээллийг массив хэлбэрээр JSON болгон буцаадаг. Хичээл бүр id болон name гэсэн талбартай.//
-
-// Серверийг асаах
-app.listen(PORT, () => {
-    console.log(`http://localhost:${PORT}`);
 });
-//Express API дээр дөрвөн GET endpoint үүсгэж, хөтөчөөр шалгасан. Байгаа endpoint-ууд 200 OK, байхгүй endpoint 404 Not Found хариу буцааж байгааг туршсан.//
+
+// Бүх ном авах эсвэл нэрээр хайх
+app.get("/books", async (req, res) => {
+    try {
+        // Promise-ийн үр дүнг хүлээх
+        const allBooks = await getBooksFromDb();
+
+        // URL-аас хайх үг авах
+        const q = req.query.q;
+
+        // Хайх үг байвал номыг шүүх
+        if (typeof q === "string" && q) {
+            return res.json(searchByTitle(q));
+        }
+
+        // Бүх номыг буцаах
+        res.json(allBooks);
+
+    } catch (error) {
+        res.status(500).json({
+            message: error.message
+        });
+    }
+});
+
+// ID-аар ном хайх
+app.get("/books/:id", async (req, res) => {
+    try {
+        // Өгөгдөл ирэхийг хүлээх
+        await getBooksFromDb();
+
+        // ID-г тоо болгох
+        const id = Number(req.params.id);
+
+        // Ном хайх, олдохгүй бол алдаа үүсгэнэ
+        const book = getBookOrThrow(id);
+
+        // Номыг буцаах
+        res.json(book);
+
+    } catch (error) {
+        // Ном олдохгүй бол 404 буцаах
+        res.status(404).json({
+            message: error.message
+        });
+    }
+});
+
+// Бүх хэрэглэгчийг авах
+app.get("/users", (req, res) => {
+    // Password талбарыг хариунаас хасах
+    const safeUsers = users.map(({ password, ...user }) => user);
+
+    res.json(safeUsers);
+});
+
+// ID-аар хэрэглэгч хайх
+app.get("/users/:id", (req, res) => {
+    const id = Number(req.params.id);
+
+    // Хэрэглэгч хайх
+    const user = findUserById(id);
+
+    // Хэрэглэгч олдохгүй бол 404
+    if (!user) {
+        return res.status(404).json({
+            message: "User not found"
+        });
+    }
+
+    // Password талбарыг буцаахгүй
+    const { password, ...safeUser } = user;
+
+    res.json(safeUser);
+});
+
+// Серверийг ажиллуулах
+const PORT = 4000;
+
+app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+});
