@@ -1,24 +1,22 @@
 
 import express from "express";
 
-// Номын module-оос функцүүд импортлох
-import {
-    getBooksFromDb,
-    getBookOrThrow,
-    searchByTitle
-} from "./books.js";
+// Ном болон хэрэглэгчийн Router
+import booksRouter from "./routes/books.router.js";
+import usersRouter from "./routes/users.router.js";
 
-// Хэрэглэгчийн module-оос импортлох
-import {
-    users,
-    findUserById
-} from "./users.js";
+// Middleware-үүд
+import { logger } from "./middlewares/logger.js";
+import { notFound, errorHandler } from "./middlewares/error.js";
 
-// Express сервер үүсгэх
+// Express апп үүсгэх
 const app = express();
 
-// JSON өгөгдөл унших
+// JSON мэдээлэл унших
 app.use(express.json());
+
+// API хүсэлт бүрийг бүртгэх
+app.use(logger);
 
 // Нүүр хуудас
 app.get("/", (req, res) => {
@@ -28,7 +26,7 @@ app.get("/", (req, res) => {
     });
 });
 
-// Серверийн төлөв шалгах
+// Сервер ажиллаж байгаа эсэхийг шалгах
 app.get("/health", (req, res) => {
     res.json({
         status: "ok",
@@ -36,7 +34,7 @@ app.get("/health", (req, res) => {
     });
 });
 
-// Хэрэглэгчийн жишээ мэдээлэл
+// Хэрэглэгчийн профайл
 app.get("/profile", (req, res) => {
     res.json({
         name: "Bat",
@@ -71,82 +69,19 @@ app.get("/courses", (req, res) => {
     ]);
 });
 
-// Бүх ном авах эсвэл нэрээр хайх
-app.get("/books", async (req, res) => {
-    try {
-        // Promise-ийн үр дүнг хүлээх
-        const allBooks = await getBooksFromDb();
+// Номын CRUD API-г холбох
+app.use("/books", booksRouter);
 
-        // URL-аас хайх үг авах
-        const q = req.query.q;
+// Хэрэглэгчийн CRUD API-г холбох
+app.use("/users", usersRouter);
 
-        // Хайх үг байвал номыг шүүх
-        if (typeof q === "string" && q) {
-            return res.json(searchByTitle(q));
-        }
+// Байхгүй API хаягийг боловсруулах
+app.use(notFound);
 
-        // Бүх номыг буцаах
-        res.json(allBooks);
+// Серверийн алдааг боловсруулах
+app.use(errorHandler);
 
-    } catch (error) {
-        res.status(500).json({
-            message: error.message
-        });
-    }
-});
-
-// ID-аар ном хайх
-app.get("/books/:id", async (req, res) => {
-    try {
-        // Өгөгдөл ирэхийг хүлээх
-        await getBooksFromDb();
-
-        // ID-г тоо болгох
-        const id = Number(req.params.id);
-
-        // Ном хайх, олдохгүй бол алдаа үүсгэнэ
-        const book = getBookOrThrow(id);
-
-        // Номыг буцаах
-        res.json(book);
-
-    } catch (error) {
-        // Ном олдохгүй бол 404 буцаах
-        res.status(404).json({
-            message: error.message
-        });
-    }
-});
-
-// Бүх хэрэглэгчийг авах
-app.get("/users", (req, res) => {
-    // Password талбарыг хариунаас хасах
-    const safeUsers = users.map(({ password, ...user }) => user);
-
-    res.json(safeUsers);
-});
-
-// ID-аар хэрэглэгч хайх
-app.get("/users/:id", (req, res) => {
-    const id = Number(req.params.id);
-
-    // Хэрэглэгч хайх
-    const user = findUserById(id);
-
-    // Хэрэглэгч олдохгүй бол 404
-    if (!user) {
-        return res.status(404).json({
-            message: "User not found"
-        });
-    }
-
-    // Password талбарыг буцаахгүй
-    const { password, ...safeUser } = user;
-
-    res.json(safeUser);
-});
-
-// Серверийг ажиллуулах
+// Серверийг 4000 порт дээр ажиллуулах
 const PORT = 4000;
 
 app.listen(PORT, () => {
