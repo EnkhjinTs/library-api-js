@@ -8,7 +8,7 @@ import {
     removeBook
 } from "../data/books.js";
 
-// GET - Бүх номыг авах эсвэл нэрээр хайх
+// GET /books - Бүх номыг авах
 export function list(req, res) {
     const q = req.query.q;
 
@@ -22,13 +22,32 @@ export function list(req, res) {
     });
 }
 
-// GET - ID-аар нэг ном авах
+// GET /books/search - Нэрээр ном хайх
+export function search(req, res) {
+    const q = req.query.q;
+
+    // Хайх үг оруулаагүй бол 400 буцаах
+    if (typeof q !== "string" || !q.trim()) {
+        return res.status(400).json({
+            message: "Search query is required"
+        });
+    }
+
+    const result = searchByTitle(q);
+
+    res.json({
+        count: result.length,
+        data: result
+    });
+}
+
+// GET /books/:id - ID-аар ном авах
 export function getOne(req, res) {
+    // URL-аас ирсэн ID-г тоо болгох
     const id = Number(req.params.id);
 
     const book = findBookById(id);
 
-    // Ном олдохгүй бол 404 буцаах
     if (!book) {
         return res.status(404).json({
             message: "Book not found"
@@ -38,11 +57,11 @@ export function getOne(req, res) {
     res.json(book);
 }
 
-// POST - Шинэ ном нэмэх
+// POST /books - Шинэ ном нэмэх
 export function create(req, res) {
     const { title, price } = req.body ?? {};
 
-    // Номын нэр заавал байх ёстой
+    // Номын нэрийг шалгах
     if (typeof title !== "string" || !title.trim()) {
         return res.status(400).json({
             message: "title is required"
@@ -54,17 +73,15 @@ export function create(req, res) {
         price
     });
 
-    // 201 - Шинэ ном амжилттай нэмэгдсэн
     res.status(201).json(book);
 }
 
-// PATCH - Номын мэдээлэл засах
+// PATCH /books/:id - Номын мэдээлэл засах
 export function update(req, res) {
     const id = Number(req.params.id);
 
     const updated = updateBook(id, req.body ?? {});
 
-    // Ном байхгүй бол 404 буцаах
     if (!updated) {
         return res.status(404).json({
             message: "Book not found"
@@ -74,19 +91,17 @@ export function update(req, res) {
     res.json(updated);
 }
 
-// DELETE - Ном устгах
+// DELETE /books/:id - Ном устгах
 export function remove(req, res) {
     const id = Number(req.params.id);
 
     const ok = removeBook(id);
 
-    // Ном олдохгүй бол 404 буцаах
     if (!ok) {
         return res.status(404).json({
             message: "Book not found"
         });
     }
 
-    // 204 - Амжилттай устгасан
     res.status(204).send();
 }

@@ -9,13 +9,13 @@ import usersRouter from "./routes/users.router.js";
 import { logger } from "./middlewares/logger.js";
 import { notFound, errorHandler } from "./middlewares/error.js";
 
-// Express апп үүсгэх
+// Express сервер үүсгэх
 const app = express();
 
-// JSON мэдээлэл унших
+// 1. JSON өгөгдлийг унших
 app.use(express.json());
 
-// API хүсэлт бүрийг бүртгэх
+// 2. Хүсэлт бүрийг бүртгэх
 app.use(logger);
 
 // Нүүр хуудас
@@ -69,21 +69,22 @@ app.get("/courses", (req, res) => {
     ]);
 });
 
-// Номын CRUD API-г холбох
+// 3. Номын API-г холбох
 app.use("/books", booksRouter);
 
-// Хэрэглэгчийн CRUD API-г холбох
+// 4. Хэрэглэгчийн API-г холбох
 app.use("/users", usersRouter);
 
-// Байхгүй API хаягийг боловсруулах
+// 5. Байхгүй API хаягт 404 буцаах
 app.use(notFound);
 
-// Серверийн алдааг боловсруулах
+// 6. Серверийн алдааг боловсруулах
 app.use(errorHandler);
 
-// Серверийг 4000 порт дээр ажиллуулах
-const PORT = 4000;
+// .env файлаас PORT авах
+const PORT = Number(process.env.PORT) || 4000;
 
+// Серверийг ажиллуулах
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });

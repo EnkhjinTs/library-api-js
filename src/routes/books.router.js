@@ -7,20 +7,24 @@ import * as c from "../controllers/books.controller.js";
 // Router үүсгэх
 const router = Router();
 
-// Бүх номыг авах
+// GET - Бүх номыг авах
 router.get("/", c.list);
 
-// ID-аар нэг ном авах
+// GET - Номыг нэрээр хайх
+// /:id-аас өмнө байрлах ёстой
+router.get("/search", c.search);
+
+// GET - ID-аар нэг ном авах
 router.get("/:id", c.getOne);
 
-// Шинэ ном нэмэх
+// POST - Шинэ ном нэмэх
 router.post("/", c.create);
 
-// Номын мэдээлэл засах
+// PATCH - Номын мэдээлэл засах
 router.patch("/:id", c.update);
 
-// Ном устгах
+// DELETE - Ном устгах
 router.delete("/:id", c.remove);
 
-// Router-ийг бусад файлд ашиглах боломжтой болгох
+// Router-ийг app.js файлд ашиглах
 export default router;
