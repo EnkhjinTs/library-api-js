@@ -1,42 +1,261 @@
 
 import { prisma } from "../db.js";
 
-// GET /books
-// Бүх номыг зохиогчийн мэдээлэлтэй авах
-export async function list(req, res) {
+// ===================================================
+// СЕМИНАР 9 — НОМ ШҮҮХ ФУНКЦ
+// ===================================================
 
-    // Хайлтын үг авах
-    const q = req.query.q;
+function buildWhere(query) {
+    const where = {};
 
-    // Номуудыг database-аас авах
-    const books = await prisma.book.findMany({
-        where: typeof q === "string" && q.trim()
-            ? {
-                title: {
-                    contains: q.trim(),
+    // 1. Зохиолчийн ID-аар шүүх
+    if (query.authorId !== undefined) {
+        const id = Number(query.authorId);
+
+        if (
+            typeof query.authorId !== "string" ||
+            !query.authorId.trim() ||
+            !Number.isInteger(id) ||
+            id <= 0
+        ) {
+            throw {
+                status: 400,
+                message: "authorId зөв тоо байх ёстой"
+            };
+        }
+
+        where.authorId = id;
+    }
+
+    // 2. Ном боломжтой эсэхээр шүүх
+    if (query.available !== undefined) {
+        if (
+            query.available !== "true" &&
+            query.available !== "false"
+        ) {
+            throw {
+                status: 400,
+                message: "available true эсвэл false байх ёстой"
+            };
+        }
+
+        where.isAvailable = query.available === "true";
+    }
+
+    // 3. Номын нэрээр хайх
+    if (query.q !== undefined) {
+        if (typeof query.q !== "string") {
+            throw {
+                status: 400,
+                message: "q текст байх ёстой"
+            };
+        }
+
+        if (query.q.trim()) {
+            where.title = {
+                contains: query.q.trim(),
+                mode: "insensitive"
+            };
+        }
+    }
+
+    // 4. Зохиолчийн нэрээр хайх
+    if (query.author !== undefined) {
+        if (typeof query.author !== "string") {
+            throw {
+                status: 400,
+                message: "author текст байх ёстой"
+            };
+        }
+
+        if (query.author.trim()) {
+            where.author = {
+                name: {
+                    contains: query.author.trim(),
                     mode: "insensitive"
                 }
-            }
-            : undefined,
+            };
+        }
+    }
 
-        // Зохиогчийн мэдээллийг хамт авах
-        include: {
-            author: true
-        },
+    // 5. Үнийн хүрээгээр шүүх
+    const price = {};
 
-        // ID-аар эрэмбэлэх
-        orderBy: { id: "asc" }
-    });
+    if (query.minPrice !== undefined) {
+        const min = Number(query.minPrice);
 
-    // Номын тоо болон мэдээллийг буцаах
-    res.json({
-        count: books.length,
-        data: books
-    });
+        if (
+            typeof query.minPrice !== "string" ||
+            !query.minPrice.trim() ||
+            !Number.isFinite(min) ||
+            min < 0
+        ) {
+            throw {
+                status: 400,
+                message: "minPrice зөв тоо байх ёстой"
+            };
+        }
+
+        price.gte = min;
+    }
+
+    if (query.maxPrice !== undefined) {
+        const max = Number(query.maxPrice);
+
+        if (
+            typeof query.maxPrice !== "string" ||
+            !query.maxPrice.trim() ||
+            !Number.isFinite(max) ||
+            max < 0
+        ) {
+            throw {
+                status: 400,
+                message: "maxPrice зөв тоо байх ёстой"
+            };
+        }
+
+        price.lte = max;
+    }
+
+    // Доод үнэ дээд үнээс их байж болохгүй
+    if (
+        price.gte !== undefined &&
+        price.lte !== undefined &&
+        price.gte > price.lte
+    ) {
+        throw {
+            status: 400,
+            message: "minPrice maxPrice-аас их байж болохгүй"
+        };
+    }
+
+    if (Object.keys(price).length > 0) {
+        where.price = price;
+    }
+
+    // 6. БИЕ ДААЛТ — Олон номын ID-аар шүүх
+    // Жишээ: GET /books?ids=1,3,5
+    if (query.ids !== undefined) {
+        if (
+            typeof query.ids !== "string" ||
+            !query.ids.trim()
+        ) {
+            throw {
+                status: 400,
+                message: "ids хоосон байж болохгүй"
+            };
+        }
+
+        const ids = query.ids.split(",").map(value => {
+            const part = value.trim();
+            return part === "" ? NaN : Number(part);
+        });
+
+        if (
+            ids.some(id =>
+                !Number.isInteger(id) || id <= 0
+            )
+        ) {
+            throw {
+                status: 400,
+                message: "ids зөв бүхэл тоонууд байх ёстой"
+            };
+        }
+
+        where.id = {
+            in: ids
+        };
+    }
+
+    return where;
 }
 
+// ===================================================
+// СЕМИНАР 9 — НОМ ЭРЭМБЭЛЭХ ФУНКЦ
+// ===================================================
+
+function buildOrderBy(query) {
+    const allowed = ["title", "price", "createdAt"];
+
+    // Анхдагч эрэмбэлэлт
+    let sort = typeof query.sort === "string"
+        ? query.sort
+        : "createdAt";
+
+    let order = query.order === "asc" ? "asc" : "desc";
+
+    // Бие даалт: ?sort=-price
+    if (sort.startsWith("-")) {
+        sort = sort.slice(1);
+        order = "desc";
+    }
+
+    // Бие даалт: ?sort=+price
+    else if (sort.startsWith("+")) {
+        sort = sort.slice(1);
+        order = "asc";
+    }
+
+    // Зөвшөөрөгдөөгүй талбар бол анхдагч утга
+    if (!allowed.includes(sort)) {
+        sort = "createdAt";
+        order = "desc";
+    }
+
+    return {
+        [sort]: order
+    };
+}
+
+// ===================================================
+// GET /books
+// СЕМИНАР 9 — ШҮҮЛТҮҮР, ХАЙЛТ, ЭРЭМБЭЛЭЛТ
+// ===================================================
+
+export async function list(req, res) {
+    try {
+        // Query параметрүүдээр шүүх нөхцөл
+        const where = buildWhere(req.query);
+
+        // Эрэмбэлэх нөхцөл
+        const orderBy = buildOrderBy(req.query);
+
+        // Номуудыг database-аас авах
+        const books = await prisma.book.findMany({
+            where,
+
+            // Зохиогчийн мэдээллийг хамт авах
+            include: {
+                author: true
+            },
+
+            orderBy
+        });
+
+        // Номын тоо болон мэдээлэл буцаах
+        res.json({
+            count: books.length,
+            data: books
+        });
+
+    } catch (error) {
+        // Буруу query параметр
+        if (error.status === 400) {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        // Бусад алдааг middleware рүү дамжуулах
+        throw error;
+    }
+}
+
+// ===================================================
 // GET /books/search?q=node
-// Номын нэрээр хайх
+// СЕМИНАР 1–6 — НОМЫН НЭРЭЭР ХАЙХ
+// ===================================================
+
 export async function search(req, res) {
 
     // Хайлтын үг авах
@@ -72,8 +291,11 @@ export async function search(req, res) {
     });
 }
 
+// ===================================================
 // GET /books/:id
-// Нэг номыг зохиогчтой нь авах
+// СЕМИНАР 1–6 — НЭГ НОМ АВАХ
+// ===================================================
+
 export async function getOne(req, res) {
 
     // URL-аас номын ID авах
@@ -106,8 +328,11 @@ export async function getOne(req, res) {
     res.json(book);
 }
 
+// ===================================================
 // POST /books
-// Шинэ ном нэмэх
+// СЕМИНАР 1–6 — ШИНЭ НОМ НЭМЭХ
+// ===================================================
+
 export async function create(req, res) {
 
     // Хэрэглэгчийн оруулсан мэдээлэл
@@ -167,8 +392,11 @@ export async function create(req, res) {
     }
 }
 
+// ===================================================
 // PATCH /books/:id
-// Номын мэдээлэл засах
+// СЕМИНАР 1–6 — НОМЫН МЭДЭЭЛЭЛ ЗАСАХ
+// ===================================================
+
 export async function update(req, res) {
 
     // URL-аас номын ID авах
@@ -220,7 +448,7 @@ export async function update(req, res) {
         changes.authorId = authorId;
     }
 
-    // Ном байгаа эсэхийг өөрчлөх
+    // Ном боломжтой эсэхийг өөрчлөх
     if (isAvailable !== undefined) {
         if (typeof isAvailable !== "boolean") {
             return res.status(400).json({
@@ -283,8 +511,11 @@ export async function update(req, res) {
     }
 }
 
+// ===================================================
 // DELETE /books/:id
-// Ном устгах
+// СЕМИНАР 1–6 — НОМ УСТГАХ
+// ===================================================
+
 export async function remove(req, res) {
 
     // URL-аас номын ID авах

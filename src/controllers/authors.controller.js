@@ -1,25 +1,58 @@
 
 import { prisma } from "../db.js";
 
-// ID зөв эсэхийг шалгах туслах функц
+// ===================================================
+// ID ЗӨВ ЭСЭХИЙГ ШАЛГАХ ТУСЛАХ ФУНКЦ
+// ===================================================
+
 function validId(id) {
     return Number.isInteger(id) && id > 0;
 }
 
-// ------------------------------------
+// ===================================================
 // GET /authors
-// Бүх зохиогчийг номын тоотой авах
-// ------------------------------------
+// СЕМИНАР 9 — ЗОХИОГЧИЙН НЭРЭЭР ХАЙХ
+// ===================================================
+
 export async function getAuthors(req, res) {
 
-    // Зохиогчдыг номын тоотой нь авах
+    // URL-аас хайлтын үг авах
+    const q = req.query.q;
+
+    // Хайлтын параметр зөв эсэхийг шалгах
+    if (q !== undefined && typeof q !== "string") {
+        return res.status(400).json({
+            message: "Search query must be a string"
+        });
+    }
+
+    // Хайлтын нөхцөл үүсгэх
+    const where = q && q.trim()
+        ? {
+            name: {
+                contains: q.trim(),
+                mode: "insensitive"
+            }
+        }
+        : {};
+
+    // Зохиогчдыг database-аас хайх
     const authors = await prisma.author.findMany({
+        where,
+
+        // Зохиогч бүрийн номын тоог авах
         include: {
             _count: {
-                select: { books: true }
+                select: {
+                    books: true
+                }
             }
         },
-        orderBy: { id: "asc" }
+
+        // ID-аар эрэмбэлэх
+        orderBy: {
+            id: "asc"
+        }
     });
 
     // Нийт тоо болон мэдээллийг буцаах
@@ -29,16 +62,17 @@ export async function getAuthors(req, res) {
     });
 }
 
-// ------------------------------------
+// ===================================================
 // GET /authors/:id
-// Нэг зохиогчийн мэдээлэл авах
-// ------------------------------------
+// НЭГ ЗОХИОГЧИЙН МЭДЭЭЛЭЛ АВАХ
+// ===================================================
+
 export async function getAuthor(req, res) {
 
     // URL-аас ID авах
     const id = Number(req.params.id);
 
-    // ID шалгах
+    // ID зөв эсэхийг шалгах
     if (!validId(id)) {
         return res.status(400).json({
             message: "Invalid author ID"
@@ -61,10 +95,11 @@ export async function getAuthor(req, res) {
     res.json(author);
 }
 
-// ------------------------------------
+// ===================================================
 // POST /authors
-// Шинэ зохиогч нэмэх
-// ------------------------------------
+// ШИНЭ ЗОХИОГЧ НЭМЭХ
+// ===================================================
+
 export async function createAuthor(req, res) {
 
     // Хүсэлтээс нэр, имэйл авах
@@ -91,7 +126,7 @@ export async function createAuthor(req, res) {
             }
         });
 
-        // 201 - Амжилттай үүссэн
+        // Амжилттай үүссэн бол 201
         res.status(201).json(author);
 
     } catch (error) {
@@ -107,10 +142,11 @@ export async function createAuthor(req, res) {
     }
 }
 
-// ------------------------------------
+// ===================================================
 // GET /authors/:id/books
-// Зохиогчийн бүх номыг авах
-// ------------------------------------
+// ЗОХИОГЧИЙН БҮХ НОМЫГ АВАХ
+// ===================================================
+
 export async function getAuthorBooks(req, res) {
 
     // URL-аас зохиогчийн ID авах
@@ -126,7 +162,9 @@ export async function getAuthorBooks(req, res) {
     // Зохиогчийг номуудын хамт хайх
     const author = await prisma.author.findUnique({
         where: { id },
-        include: { books: true }
+        include: {
+            books: true
+        }
     });
 
     // Зохиогч олдохгүй бол
@@ -136,14 +174,15 @@ export async function getAuthorBooks(req, res) {
         });
     }
 
-    // Номуудыг буцаах
+    // Зохиогчийн бүх номыг буцаах
     res.json(author.books);
 }
 
-// ------------------------------------
+// ===================================================
 // POST /authors/:id/books
-// Тухайн зохиогчид шинэ ном нэмэх
-// ------------------------------------
+// ТУХАЙН ЗОХИОГЧИД ШИНЭ НОМ НЭМЭХ
+// ===================================================
+
 export async function createAuthorBook(req, res) {
 
     // URL-аас зохиогчийн ID авах
@@ -192,10 +231,14 @@ export async function createAuthorBook(req, res) {
                 price,
                 authorId: id
             },
-            include: { author: true }
+
+            // Зохиогчийн мэдээллийг хамт авах
+            include: {
+                author: true
+            }
         });
 
-        // Амжилттай нэмсэн бол 201
+        // Амжилттай нэмэгдсэн бол 201
         res.status(201).json(book);
 
     } catch (error) {
@@ -211,10 +254,11 @@ export async function createAuthorBook(req, res) {
     }
 }
 
-// ------------------------------------
+// ===================================================
 // DELETE /authors/:id
-// Зохиогч устгах
-// ------------------------------------
+// ЗОХИОГЧ УСТГАХ
+// ===================================================
+
 export async function deleteAuthor(req, res) {
 
     // URL-аас ID авах
@@ -232,7 +276,9 @@ export async function deleteAuthor(req, res) {
         where: { id },
         include: {
             _count: {
-                select: { books: true }
+                select: {
+                    books: true
+                }
             }
         }
     });
@@ -262,7 +308,7 @@ export async function deleteAuthor(req, res) {
 
     } catch (error) {
 
-        // Устгахын өмнө ном нэмэгдсэн байж болно
+        // Устгахын өмнө ном нэмэгдсэн бол
         if (error.code === "P2003") {
             return res.status(409).json({
                 message: "Author has books and cannot be deleted"
