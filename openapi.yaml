@@ -1,0 +1,456 @@
+
+openapi: 3.0.3
+
+info:
+  title: Library API
+  version: 1.0.0
+  description: BED411 номын сангийн API - Семинар 11
+
+servers:
+  - url: http://localhost:4000
+
+tags:
+  - name: Books
+    description: Номын API
+  - name: Authors
+    description: Зохиолчдын API
+
+paths:
+
+  # ==========================================
+  # GET /books - НОМЫН ЖАГСААЛТ
+  # ==========================================
+
+  /books:
+    get:
+      tags: [Books]
+      summary: Номын жагсаалт авах
+      description: Ном хайх, шүүх, эрэмбэлэх, хуудаслалт хийх
+
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [title, price, createdAt]
+            default: createdAt
+
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+
+        - name: authorId
+          in: query
+          schema:
+            type: integer
+
+        - name: q
+          in: query
+          schema:
+            type: string
+
+      responses:
+        "200":
+          description: Номын жагсаалт
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookList"
+        "400":
+          description: Буруу хүсэлт
+
+    # ==========================================
+    # POST /books - НОМ НЭМЭХ
+    # ==========================================
+
+    post:
+      tags: [Books]
+      summary: Шинэ ном нэмэх
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, price, authorId]
+              properties:
+                title:
+                  type: string
+                  example: Node.js Basics
+                price:
+                  type: integer
+                  example: 45000
+                authorId:
+                  type: integer
+                  example: 1
+
+      responses:
+        "201":
+          description: Ном нэмэгдсэн
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "400":
+          description: Буруу мэдээлэл
+        "404":
+          description: Зохиолч олдсонгүй
+
+  # ==========================================
+  # GET, PATCH, DELETE /books/{id}
+  # ==========================================
+
+  /books/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags: [Books]
+      summary: ID-аар нэг ном авах
+      responses:
+        "200":
+          description: Номын мэдээлэл
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "400":
+          description: Буруу ID
+        "404":
+          description: Ном олдсонгүй
+
+    patch:
+      tags: [Books]
+      summary: Номын мэдээлэл засах
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: Updated Book
+                price:
+                  type: integer
+                  example: 55000
+                isAvailable:
+                  type: boolean
+                  example: true
+
+      responses:
+        "200":
+          description: Ном засагдсан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "400":
+          description: Буруу мэдээлэл
+        "404":
+          description: Ном олдсонгүй
+
+    delete:
+      tags: [Books]
+      summary: Ном устгах
+      responses:
+        "204":
+          description: Ном амжилттай устгагдсан
+        "400":
+          description: Буруу ID
+        "404":
+          description: Ном олдсонгүй
+
+  # ==========================================
+  # GET /authors - ЗОХИОЛЧДЫН ЖАГСААЛТ
+  # ==========================================
+
+  /authors:
+    get:
+      tags: [Authors]
+      summary: Зохиолчдын жагсаалт авах
+      description: Зохиолч хайх болон хуудаслалт хийх
+
+      parameters:
+        - name: q
+          in: query
+          description: Зохиолчийн нэрээр хайх
+          schema:
+            type: string
+
+        - name: page
+          in: query
+          description: Хуудасны дугаар
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+
+        - name: limit
+          in: query
+          description: Нэг хуудсанд харуулах тоо
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+
+      responses:
+        "200":
+          description: Зохиолчдын жагсаалт
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorList"
+        "400":
+          description: Буруу хүсэлт
+
+    # ==========================================
+    # POST /authors - ЗОХИОЛЧ НЭМЭХ
+    # ==========================================
+
+    post:
+      tags: [Authors]
+      summary: Шинэ зохиолч нэмэх
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                  example: Дорж
+                email:
+                  type: string
+                  format: email
+                  example: dorj@example.com
+
+      responses:
+        "201":
+          description: Зохиолч нэмэгдсэн
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Author"
+        "400":
+          description: Буруу мэдээлэл
+        "409":
+          description: Имэйл давхардсан
+
+  # ==========================================
+  # GET, DELETE /authors/{id}
+  # ==========================================
+
+  /authors/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Зохиолчийн ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags: [Authors]
+      summary: Нэг зохиолчийн мэдээлэл авах
+      responses:
+        "200":
+          description: Зохиолчийн мэдээлэл
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Author"
+        "400":
+          description: Буруу ID
+        "404":
+          description: Зохиолч олдсонгүй
+
+    delete:
+      tags: [Authors]
+      summary: Зохиолч устгах
+      description: Номтой зохиолчийг устгах боломжгүй
+      responses:
+        "204":
+          description: Зохиолч устгагдсан
+        "400":
+          description: Буруу ID
+        "404":
+          description: Зохиолч олдсонгүй
+        "409":
+          description: Зохиолч номтой тул устгах боломжгүй
+
+  # ==========================================
+  # GET, POST /authors/{id}/books
+  # ==========================================
+
+  /authors/{id}/books:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Зохиолчийн ID
+        schema:
+          type: integer
+          minimum: 1
+
+    get:
+      tags: [Authors]
+      summary: Зохиолчийн бүх номыг авах
+      responses:
+        "200":
+          description: Зохиолчийн номын жагсаалт
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+        "400":
+          description: Буруу ID
+        "404":
+          description: Зохиолч олдсонгүй
+
+    post:
+      tags: [Authors]
+      summary: Зохиолчид шинэ ном нэмэх
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, price]
+              properties:
+                title:
+                  type: string
+                  example: Express Advanced
+                price:
+                  type: integer
+                  example: 55000
+
+      responses:
+        "201":
+          description: Ном нэмэгдсэн
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "400":
+          description: Буруу мэдээлэл
+        "404":
+          description: Зохиолч олдсонгүй
+
+# ==========================================
+# COMPONENTS - ӨГӨГДЛИЙН БҮТЭЦ
+# ==========================================
+
+components:
+  schemas:
+
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        price:
+          type: integer
+        authorId:
+          type: integer
+          nullable: true
+        authorName:
+          type: string
+          nullable: true
+        isAvailable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        author:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/Author"
+
+    Author:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        _count:
+          type: object
+          properties:
+            books:
+              type: integer
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+
+    BookList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Book"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    AuthorList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Author"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
