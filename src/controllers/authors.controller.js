@@ -10,23 +10,51 @@ function validId(id) {
 }
 
 // ===================================================
+// СЕМИНАР 10 — ХУУДАСЛАЛТЫН ТУСЛАХ ФУНКЦ
+// ===================================================
+
+function getPaging(query) {
+
+    // Хуудасны дугаар: анхдагч 1
+    const rawPage = Number(query.page);
+
+    const page = Number.isSafeInteger(rawPage) && rawPage >= 1
+        ? rawPage
+        : 1;
+
+    // Нэг хуудсанд харуулах зохиолчийн тоо
+    // Анхдагч 10, хамгийн ихдээ 50
+    const rawLimit = Number(query.limit);
+
+    const limit = Number.isSafeInteger(rawLimit) && rawLimit >= 1
+        ? Math.min(50, rawLimit)
+        : 10;
+
+    // Өмнөх хуудсуудын зохиолчийг алгасах
+    const skip = (page - 1) * limit;
+
+    return { page, limit, skip };
+}
+
+// ===================================================
 // GET /authors
-// СЕМИНАР 9 — ЗОХИОГЧИЙН НЭРЭЭР ХАЙХ
+// СЕМИНАР 9 + 10
+// ЗОХИОГЧИЙН НЭРЭЭР ХАЙХ + ХУУДАСЛАЛТ
 // ===================================================
 
 export async function getAuthors(req, res) {
 
-    // URL-аас хайлтын үг авах
+    // 1. URL-аас хайлтын үг авах
     const q = req.query.q;
 
-    // Хайлтын параметр зөв эсэхийг шалгах
+    // 2. Хайлтын параметр зөв эсэхийг шалгах
     if (q !== undefined && typeof q !== "string") {
         return res.status(400).json({
             message: "Search query must be a string"
         });
     }
 
-    // Хайлтын нөхцөл үүсгэх
+    // 3. Хайлтын нөхцөл үүсгэх
     const where = q && q.trim()
         ? {
             name: {
@@ -36,29 +64,68 @@ export async function getAuthors(req, res) {
         }
         : {};
 
-    // Зохиогчдыг database-аас хайх
-    const authors = await prisma.author.findMany({
-        where,
+    // 4. Хуудаслалтын мэдээлэл авах
+    const { page, limit, skip } = getPaging(req.query);
 
-        // Зохиогч бүрийн номын тоог авах
-        include: {
-            _count: {
-                select: {
-                    books: true
+    // Хэт том хуудасны дугаарыг шалгах
+    if (!Number.isSafeInteger(skip)) {
+        return res.status(400).json({
+            message: "page хэт том байна"
+        });
+    }
+
+    // 5. Зохиолчид болон нийт тоог зэрэг авах
+    const [authors, total] = await Promise.all([
+
+        prisma.author.findMany({
+            where,
+
+            // Өмнөх хуудсуудыг алгасах
+            skip,
+
+            // Энэ хуудсанд харуулах тоо
+            take: limit,
+
+            // Зохиолч бүрийн номын тоог авах
+            include: {
+                _count: {
+                    select: {
+                        books: true
+                    }
                 }
+            },
+
+            // ID-аар эрэмбэлэх
+            orderBy: {
+                id: "asc"
             }
-        },
+        }),
 
-        // ID-аар эрэмбэлэх
-        orderBy: {
-            id: "asc"
-        }
-    });
+        // Шүүлтүүрт тохирох нийт зохиолчийн тоо
+        prisma.author.count({
+            where
+        })
+    ]);
 
-    // Нийт тоо болон мэдээллийг буцаах
+    // 6. Нийт хуудасны тоо
+    const pages = Math.ceil(total / limit);
+
+    // 7. Зохиолчид болон хуудаслалтын мэдээлэл буцаах
     res.json({
-        count: authors.length,
-        data: authors
+        data: authors,
+
+        meta: {
+            page,
+            limit,
+            total,
+            pages,
+
+            // Дараагийн хуудас байгаа эсэх
+            hasNext: page < pages,
+
+            // Өмнөх хуудас байгаа эсэх
+            hasPrev: page > 1
+        }
     });
 }
 

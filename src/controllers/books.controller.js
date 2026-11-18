@@ -208,34 +208,93 @@ function buildOrderBy(query) {
 }
 
 // ===================================================
+// СЕМИНАР 10 — ХУУДАСЛАЛТ (PAGINATION)
+// ===================================================
+
+function getPaging(query) {
+    // Хуудасны дугаар: анхдагч 1
+    // Буруу утга ирвэл 1 болгоно
+    const rawPage = Number(query.page);
+    const page = Number.isSafeInteger(rawPage) && rawPage >= 1
+        ? rawPage
+        : 1;
+
+    // Нэг хуудсанд харуулах номын тоо
+    // Анхдагч 10, хамгийн ихдээ 50
+    const rawLimit = Number(query.limit);
+    const limit = Number.isSafeInteger(rawLimit) && rawLimit >= 1
+        ? Math.min(50, rawLimit)
+        : 10;
+
+    // Өмнөх хуудсуудын номыг алгасах тоо
+    const skip = (page - 1) * limit;
+
+    return { page, limit, skip };
+}
+
+// ===================================================
 // GET /books
-// СЕМИНАР 9 — ШҮҮЛТҮҮР, ХАЙЛТ, ЭРЭМБЭЛЭЛТ
+// СЕМИНАР 9 + 10
+// ШҮҮЛТҮҮР + ХАЙЛТ + ЭРЭМБЭЛЭЛТ + ХУУДАСЛАЛТ
 // ===================================================
 
 export async function list(req, res) {
     try {
-        // Query параметрүүдээр шүүх нөхцөл
+        // 1. Семинар 9 — Query параметрээр шүүх
         const where = buildWhere(req.query);
 
-        // Эрэмбэлэх нөхцөл
+        // 2. Семинар 9 — Эрэмбэлэх нөхцөл
         const orderBy = buildOrderBy(req.query);
 
-        // Номуудыг database-аас авах
-        const books = await prisma.book.findMany({
-            where,
+        // 3. Семинар 10 — Хуудаслалтын мэдээлэл
+        const { page, limit, skip } = getPaging(req.query);
 
-            // Зохиогчийн мэдээллийг хамт авах
-            include: {
-                author: true
-            },
+        // Хэт том page-ээс үүсэх буруу skip-ийг шалгах
+        if (!Number.isSafeInteger(skip)) {
+            return res.status(400).json({
+                message: "page хэт том байна"
+            });
+        }
 
-            orderBy
-        });
+        // 4. Номын жагсаалт болон нийт тоог зэрэг авах
+        const [books, total] = await Promise.all([
+            prisma.book.findMany({
+                where,
+                orderBy,
+                skip,
+                take: limit,
 
-        // Номын тоо болон мэдээлэл буцаах
+                // Зохиолчийн мэдээллийг хамт авах
+                include: {
+                    author: true
+                }
+            }),
+
+            // Шүүлтүүрт тохирсон нийт номын тоо
+            prisma.book.count({
+                where
+            })
+        ]);
+
+        // 5. Нийт хэдэн хуудас байгааг тооцоолох
+        const pages = Math.ceil(total / limit);
+
+        // 6. Ном болон хуудаслалтын мэдээлэл буцаах
         res.json({
-            count: books.length,
-            data: books
+            data: books,
+
+            meta: {
+                page,
+                limit,
+                total,
+                pages,
+
+                // Дараагийн хуудас байгаа эсэх
+                hasNext: page < pages,
+
+                // Өмнөх хуудас байгаа эсэх
+                hasPrev: page > 1
+            }
         });
 
     } catch (error) {
@@ -277,7 +336,7 @@ export async function search(req, res) {
             }
         },
 
-        // Зохиогчийг хамт авах
+        // Зохиолчийг хамт авах
         include: {
             author: true
         },
@@ -308,7 +367,7 @@ export async function getOne(req, res) {
         });
     }
 
-    // Номыг зохиогчийн хамт хайх
+    // Номыг зохиолчийн хамт хайх
     const book = await prisma.book.findUnique({
         where: { id },
 
@@ -352,7 +411,7 @@ export async function create(req, res) {
         });
     }
 
-    // Зохиогчийн ID шалгах
+    // Зохиолчийн ID шалгах
     if (!Number.isInteger(authorId) || authorId <= 0) {
         return res.status(400).json({
             message: "Valid authorId is required"
@@ -360,17 +419,17 @@ export async function create(req, res) {
     }
 
     try {
-        // Шинэ номыг зохиогчтой холбож хадгалах
+        // Шинэ номыг зохиолчтой холбож хадгалах
         const book = await prisma.book.create({
             data: {
                 title: title.trim(),
                 price: price,
 
-                // Зохиогчийн ID-г холбох
+                // Зохиолчийн ID-г холбох
                 authorId: authorId
             },
 
-            // Хариунд зохиогчийг хамт харуулах
+            // Хариунд зохиолчийг хамт харуулах
             include: {
                 author: true
             }
@@ -381,7 +440,7 @@ export async function create(req, res) {
 
     } catch (error) {
 
-        // Байхгүй зохиогчийн ID оруулсан бол
+        // Байхгүй зохиолчийн ID оруулсан бол
         if (error.code === "P2003" || error.code === "P2025") {
             return res.status(400).json({
                 message: "Author not found"
@@ -437,7 +496,7 @@ export async function update(req, res) {
         changes.price = price;
     }
 
-    // Зохиогч өөрчлөх
+    // Зохиолч өөрчлөх
     if (authorId !== undefined) {
         if (!Number.isInteger(authorId) || authorId <= 0) {
             return res.status(400).json({
@@ -459,7 +518,7 @@ export async function update(req, res) {
         changes.isAvailable = isAvailable;
     }
 
-    // Засах мэдээлэл ирээгүй бол
+    // Засах мэдээлэл ирээгүй бол//
     if (Object.keys(changes).length === 0) {
         return res.status(400).json({
             message: "No valid fields to update"
@@ -500,7 +559,7 @@ export async function update(req, res) {
             });
         }
 
-        // Байхгүй зохиогчийн ID бол
+        // Байхгүй зохиолчийн ID бол
         if (error.code === "P2003") {
             return res.status(400).json({
                 message: "Author not found"
@@ -511,10 +570,10 @@ export async function update(req, res) {
     }
 }
 
-// ===================================================
+// ==================================================
 // DELETE /books/:id
 // СЕМИНАР 1–6 — НОМ УСТГАХ
-// ===================================================
+// =============================================
 
 export async function remove(req, res) {
 
